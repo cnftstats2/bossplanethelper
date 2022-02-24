@@ -1,0 +1,404 @@
+---
+title: "Boss Planet Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    navbar:
+      - { title: "Twitter", href: "https://twitter.com/cnftstats"}
+      - { title: "About", href: "#about" }
+    social: ["menu"]
+    css: rmd_flexboard.css
+    self_contained: TRUE
+    includes:
+      in_header: header.html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, comment = "", dev = "svglite", fig.ext = ".svg")
+# Libraries
+library(flexdashboard)
+library(htmlwidgets)
+library(data.table)
+library(magrittr)
+library(ggplot2)
+library(svglite)
+library(plotly)
+library(DT)
+
+# Data
+DT <- readRDS("data/DT.rds")
+DTS <- readRDS("data/DTS.rds")
+DTE <- readRDS("data/DTE.rds")
+RAR <- readRDS("data/RAR.rds")
+
+# javascript (clickable datapoints url)
+# https://stackoverflow.com/questions/51681079/how-to-make-scatterplot-points-open-a-hyperlink-using-ggplotly-r
+js <- "function(el, x) {
+    var id = el.getAttribute('id');
+    var gd = document.getElementById(id);
+    var d3 = Plotly.d3;
+    Plotly.update(id).then(attach);
+    function attach() {
+        gd.addEventListener('mousemove', function(evt) {
+            var xaxis = gd._fullLayout.xaxis;
+            var yaxis = gd._fullLayout.yaxis;
+            var bb = evt.target.getBoundingClientRect();
+            var x = xaxis.p2d(evt.clientX - bb.left);
+            var y = yaxis.p2d(evt.clientY - bb.top);
+            Plotly.relayout(gd, 'xaxis.title', 'x: ' + parseFloat(x).toFixed(0) + '  y: ' + parseFloat(y).toFixed(0));
+            // Plotly.relayout(gd, 'yaxis.title', 'y: ' + parseFloat(y).toFixed(0));
+            // Plotly.relayout(gd, 'title', ['x: ' + x, 'y: ' + y].join('<br>'));
+        });
+    };
+    el.on('plotly_click', function(d) {
+        var link = d.points[0].customdata;
+        window.open(link);
+    });
+}"
+# Functions
+loj <- function (X = NULL, Y = NULL, onCol = NULL) {
+  if (truelength(X) == 0 | truelength(Y) == 0) 
+    stop("setDT(X) and setDT(Y) first")
+  n <- names(Y)
+  X[Y, `:=`((n), mget(paste0("i.", n))), on = onCol]
+}
+```
+
+<!-- Add live timestamp -->
+```{r results='asis'}
+timestamp <- as.numeric(Sys.time())
+cat("
+<script>
+$(document).ready(function(){
+  $('.navbar-author').after('</br><span id=", '"updatedat"', ">Updated: <span data-livestamp=", '"', timestamp, '"', "></span></span>');
+});
+</script>
+", sep = "")
+```
+
+# Sidebar {data-width=80, .sidebar}
+<ul id="sidebar_ul">
+<li><a href="https://cnftstats.github.io/adapes">Adapes</a></li>
+<li><a href="https://cnftstats.github.io/bcrc">BCRC</a></li>
+<li><a href="https://cnftstats.github.io/borgs">BorgsClub</a></li>
+<li id="currentProject"><a href="https://cnftstats.github.io/bossplanet">BossPlanet</a></li>
+<li><a href="https://cnftstats.github.io/chilledkongs">ChilledKongs</a></li>
+<li><a href="https://cnftstats.github.io/claynation">Clay Nation</a></li>
+<li><a href="https://cnftstats.github.io/discosolaris">DiscoSolaris</a></li>
+<li><a href="https://cnftstats.github.io/mocossi">Mocossi</a></li>
+<li><a href="https://cnftstats.github.io/pavia">Pavia</a></li>
+<li><a href="https://cnftstats.github.io/spacebudz">SpaceBudz</a></li>
+</ul>
+
+# Floor {data-icon="ion-arrow-graph-up-right"}
+## Column 1 {data-width=650, .tabset}
+### Listings
+```{r fig.height=7, fig.width=10}
+X <- copy(DT[type != "bundle"])
+X[price %between% c(0, 999), price_range := trunc(price/100)*100]
+X[price %between% c(1000, 4999), price_range := trunc(price/1000)*1000]
+X[price >= 5000, price_range := 5000]
+X <- X[complete.cases(price_range), .(price_range, price, market, district_txt)]
+CAP <- X[, .(floor = min(price), listings = .N), district_txt][order(district_txt)]
+.caption <- paste0(CAP[, sprintf("%s: Floor = %s | Listings = %d", district_txt, floor, listings)],
+                   collapse = "\n")
+X <- X[, .N, .(price_range, market, district_txt)][order(price_range)]
+X[price_range %between% c(0, 999),  x_label := paste0(price_range, "-", price_range + (100-1))]
+X[price_range %between% c(1000, 4999),  x_label := paste0(price_range, "-", price_range + (1000-1))]
+X[price_range >= 5000,               x_label := "5000+"]
+.X <- X[, .(price_range, x_label)] %>% unique %>% .[order(price_range)]
+X[, x_label := factor(x_label, levels = .X$x_label)]
+X[, market  := factor(market, levels = c("jpg.store", "cnft.io"))]
+ggplot(X, aes(x_label, N, fill = market)) +
+  facet_wrap(.~district_txt, nrow = 3, ncol = 3) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = stat(y), group = x_label),
+            stat = 'summary', fun = sum, vjust = -.5, hjust = +.55,
+            color = "steelblue4", size = 3) +
+  scale_fill_manual(values = c("jpg.store" = "steelblue3", "cnft.io" = "steelblue4")) +
+  scale_alpha_manual(values = 0.9, guide = "none") +
+  labs(x = "Price range", y = "Number of listings", fill = "", caption = .caption) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = -45, vjust = +.5, hjust = 0,
+                                   color = "grey50", size = 8),
+        axis.text.y = element_text(color = "grey50", size = 8),
+        axis.title = element_text(color = "grey30", size = 10),
+        legend.position = "bottom", legend.justification = 'right', legend.direction = "horizontal",
+        legend.text = element_text(color = "grey50", size = 9),
+        legend.key.height = unit(0.5, "points"), legend.key.width = unit(10, "points"),
+        legend.box.spacing = unit(-10, "points"),
+        plot.caption = element_text(color = "#008B8B", vjust = +15, hjust = 0, size = 8),
+        plot.margin = unit(c(0, 15, 0, 0), units = "pt"),
+        panel.grid.minor = element_blank())
+```
+
+> Warning: `Bundles` (multiple assets listed together) are excluded!
+
+### Sales (last 72h)
+```{r fig.height=7, fig.width=10}
+X <- copy(DTS[type != "bundle"])
+X[price %between% c(0, 999), price_range := trunc(price/100)*100]
+X[price %between% c(1000, 4999), price_range := trunc(price/1000)*1000]
+X[price >= 5000, price_range := 5000]
+X <- X[complete.cases(price_range), .(price_range, price, market, district_txt)]
+CAP <- X[, .(floor = min(price), roof = max(price), sales = .N), district_txt][order(district_txt)]
+.caption <- paste0(CAP[, sprintf("%s: Sale floor = %s | Sale roof = %d | Sales = %d",
+                                 district_txt, floor, roof, sales)],
+                   collapse = "\n")
+X <- X[, .N, .(price_range, market, district_txt)][order(price_range)]
+X[price_range %between% c(0, 999),  x_label := paste0(price_range, "-", price_range + (100-1))]
+X[price_range %between% c(1000, 4999),  x_label := paste0(price_range, "-", price_range + (1000-1))]
+X[price_range >= 5000,               x_label := "5000+"]
+.X <- X[, .(price_range, x_label)] %>% unique %>% .[order(price_range)]
+X[, x_label := factor(x_label, levels = .X$x_label)]
+X[, market  := factor(market, levels = c("jpg.store", "cnft.io"))]
+ggplot(X, aes(x_label, N, fill = market)) +
+  facet_wrap(.~district_txt, nrow = 3, ncol = 3) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = stat(y), group = x_label),
+            stat = 'summary', fun = sum, vjust = -.5, hjust = +.55,
+            color = "steelblue4", size = 3) +
+  scale_fill_manual(values = c("jpg.store" = "springgreen3", "cnft.io" = "springgreen4")) +
+  scale_alpha_manual(values = 0.9, guide = "none") +
+  labs(x = "Price range", y = "Number of sales", fill = "", caption = .caption) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = -45, vjust = +.5, hjust = 0,
+                                   color = "grey50", size = 8),
+        axis.text.y = element_text(color = "grey50", size = 8),
+        axis.title = element_text(color = "grey30", size = 10),
+        legend.position = "bottom", legend.justification = 'right', legend.direction = "horizontal",
+        legend.text = element_text(color = "grey50", size = 9),
+        legend.key.height = unit(0.5, "points"), legend.key.width = unit(10, "points"),
+        legend.box.spacing = unit(-10, "points"),
+        plot.caption = element_text(color = "#008B8B", vjust = +15, hjust = 0, size = 8),
+        plot.margin = unit(c(0, 15, 0, 0), units = "pt"),
+        panel.grid.minor = element_blank())
+```
+
+> Warning: Only last 72h sales are included. `Bundles` (multiple assets sold together) are excluded!
+
+## Column 2 {data-width=350}
+### Sweep that floor: Lowest listings
+```{r}
+X <- DT[order(price)][1:30]
+X[, asset := sprintf("<a href='%s' target='_blank'>%s</a>", link, asset)]
+X <- X[, .(asset, price, district, market)]
+X <- X[complete.cases(X)]
+datatable(X, class = 'compact stripe hover nowrap',
+          options = list(dom = "t",
+                         pageLength = 100,
+                         scrollY = '100%',
+                         bLengthChange = FALSE,
+                         bPaginate = FALSE,
+                         info = FALSE,
+                         columnDefs = list(list(className = 'dt-right', targets = "_all"))),
+          colnames = c("Asset", "Price", "District", "Market"),
+          rownames = FALSE,
+          escape = FALSE) %>%
+  formatStyle(columns = 1:ncol(X), fontSize = '90%')
+```
+
+# Map {data-icon="ion-android-map"}
+## Column 1 {data-width=500, .tabset}
+
+<!-- ### Tiles -->
+<!-- ```{r} -->
+<!-- # XRAR <- RAR[!asset %in% DT$asset] -->
+<!-- map_background <- paste0("https://raw.githubusercontent.com/cnftstats/bossplanet/", -->
+<!--                          "main/map_background.png?raw=true") -->
+
+
+<!-- X <- data.table(expand.grid(x = -180:180, y = -180:180), price_rank = NA) -->
+<!-- X[, xy := paste(x, y, sep = ",")] -->
+<!-- setnames(X, c("x", "y"), c("xcoord", "ycoord")) -->
+
+<!-- DT[, xy := paste(xcoord, ycoord, sep = ",")] -->
+
+<!-- loj(X, DT[, .(xcoord, ycoord, price_rank, xy)]) -->
+
+<!-- ggplot(DT) + -->
+<!--   geom_tile(aes(xcoord, ycoord, fill = price_rank)) + -->
+<!--   scale_x_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) + -->
+<!--   scale_y_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) + -->
+<!--   labs(color = "Price", x = "", y = "") + -->
+<!--   theme(panel.grid.minor = element_blank(), -->
+<!--         panel.grid.major = element_line(colour = "grey80"), -->
+<!--         panel.background = element_rect(fill = 'transparent')) -->
+
+<!-- ggplotly(gg) %>% config(scrollZoom = TRUE) -->
+
+
+<!-- ``` -->
+
+
+### Listings
+```{r}
+# XRAR <- RAR[!asset %in% DT$asset]
+map_background <- paste0("https://raw.githubusercontent.com/cnftstats/bossplanet/",
+                         "main/map_background.png?raw=true")
+
+gg <- ggplot() +
+  # geom_point(data = XRAR, aes(x = xcoord, y = ycoord), color = "grey90", alpha = .9, size = .3) +
+  geom_point(data = DT, 
+             aes(x = xcoord, y = ycoord, color = price_rank, shape = type, customdata = link,
+                 text = paste0(asset,
+                               "</br></br>", paste("Price:", price,
+                                                   "</br>District:", district,
+                                                   "</br>Type:", type,
+                                                   "</br>Market:", market))), size = .5) +
+  scale_color_gradient2(low = 'steelblue3', mid = "goldenrod1", midpoint = .5, high = 'red',
+                        na.value = "grey90",
+                        breaks = 0:1, labels = c("Lowest", "Highest"), limits = 0:1) +
+  scale_x_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+  scale_y_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+  scale_shape_manual(values = c("listing" = 16, "bundle" = 17)) +
+  labs(color = "Price", x = "", y = "") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(colour = "grey80"),
+        panel.background = element_rect(fill = 'transparent'))
+# coord_fixed(xlim = c(-180, 180), ylim = c(-180, 180))
+
+ggplotly(gg, tooltip = "text") %>%
+  layout(legend = list(x = 1, y = .2, bgcolor = 'rgba(255,255,255,0.6)'),
+         images = list(list(
+           source = map_background,
+           xref = "x",
+           yref = "y",
+           x = -180,
+           y = 179,
+           sizex = 359,
+           sizey = 239,
+           sizing = "stretch",
+           opacity = 1,
+           layer = "below"
+         ))) %>%
+  config(scrollZoom = TRUE) %>% 
+  onRender(js)
+```
+
+> Click on the data points to open the listings. Click and drag your mouse to zoom. You can zoom-in/out with your mouse wheel! Grey areas are minted lands. I have no clue what the white areas are.
+
+### Sales (last 72h)
+```{r}
+DTS[, sold_time := trunc(sold_at_days)]
+DTS[, sold_time := fcase(trunc(sold_at_days) == 0, "0-24h ago",
+                         trunc(sold_at_days) == 1, "24-48h ago",
+                         trunc(sold_at_days) == 2, "48-72h ago")]
+
+# XRAR <- RAR[!asset %in% DTS$asset]
+gg <- ggplot() +
+  # geom_point(data = XRAR, aes(x = xcoord, y = ycoord), color = "grey90", alpha = .9, size = .3) +
+  geom_point(data = DTS, 
+             aes(x = xcoord, y = ycoord, color = price_rank,
+                 text = paste0(asset,
+                               "</br></br>", paste("Price:", price,
+                                                   "</br>District:", district,
+                                                   "</br>Type:", type,
+                                                   "</br>Sold time:", sold_time,
+                                                   "</br>Market:", market))), size = .3) +
+  scale_color_gradient2(low = 'steelblue3', mid = "goldenrod1", midpoint = .5, high = 'red',
+                        na.value = "grey90",
+                        breaks = 0:1, labels = c("Lowest", "Highest"), limits = 0:1) +
+  scale_x_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+  scale_y_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+  labs(color = "Price", x = "", y = "") +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major = element_line(colour = "grey80"),
+        panel.background = element_rect(fill = 'transparent'))
+# coord_fixed(xlim = c(-180, 180), ylim = c(-180, 180), expand = TRUE)
+
+ggplotly(gg, tooltip = "text") %>%
+  layout(legend = list(x = 1, y = .2, bgcolor = 'rgba(255,255,255,0.6)'),
+         images = list(list(
+           source = map_background,
+           xref = "x",
+           yref = "y",
+           x = -180,
+           y = 179,
+           sizex = 359,
+           sizey = 239,
+           sizing = "stretch",
+           opacity = 1,
+           layer = "below"
+         ))) %>%
+  config(scrollZoom = TRUE) %>%
+  onRender(js)
+```
+
+> Click and drag your mouse to zoom. You can zoom-in/out with your mouse wheel. Grey areas are minted lands. I have no clue what the white areas are.
+
+### Minted
+```{r fig.height=10}
+CAP <- RAR[, .(minted = .N, percent = sprintf("%05.02f%%", .N/nrow(RAR)*100)), district]
+CAP <- CAP[, sprintf("District %s = %d (%s) lands", district, minted, percent)]
+CAP <- paste0(CAP, collapse = "\n")
+CAP <- paste0("Total = ", nrow(RAR), " lands (100%)\n", CAP)
+cat(CAP)
+
+
+# ggplot(RAR, aes(x = xcoord, y = ycoord)) +
+#   geom_point(color = "grey60", size = .3) +
+#   scale_x_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+#   scale_y_continuous(breaks = c(-180, -60, +60, +180), expand = c(0.01, 0.01)) +
+#   labs(x = "", y = "", title = "Boss Planet minted lands", subtitle = CAP) +
+#   theme(panel.grid.minor = element_blank(),
+#         panel.grid.major = element_line(colour = "grey80"),
+#         panel.background = element_rect(fill = 'transparent'),
+#         plot.title = element_text(color = "firebrick4", size = 15),
+#         plot.subtitle = element_text(color = "steelblue3", size = 12)) +
+#   coord_fixed(xlim = c(-180, 180), ylim = c(-180, 180), expand = TRUE)
+```
+
+# Support this project (Thank you so much kind stranger!) {data-icon="ion-heart"}
+## Column 1
+### Thanks for your support!
+You can support this project by spreading the word about it to the CNFT community! :-)
+
+Tips would also be greatly appreciated! This would encourage me to maintain and improve the website (for instance, to get a better hosting service).  
+
+![Tip me](tipme.svg){width=200px}  
+**addr1qx04gwr9kazlpnm6t8a8h0pggk440zs3fdayct732a0wwwd3usryhnh52pevj5xy7cgp9d4jnywar6g0tnct58dyfukszl25n8** 
+
+# about {.hidden}
+## Columun 1
+### About the website
+#### The data
+- Listings data is comes from <a href="https://cnft.io/" target="_blank">cnft.io</a> and <a href="https://www.jpg.store/" target="_blank">jpg.store</a> marketplaces.
+- Rank and rarity scores come from <a href="https://cnft.tools/" target="_blank">cnft.tools</a>.
+- The website is updated every ~10mins (expect for the Pavia projects which takes more time). You need to hit `F5` to manually see the updates on the website.
+
+#### Comming soon
+- Only the *listings* are currently analyzed, but the *sales* will be soon included
+
+#### Disclaimer
+- This is an early version, so there might be some bugs! Use at your own risk
+
+## Columun 2
+### Other useful websites
+#### Official websites
+- <a href="https://bosscatrocketclub.com/" target="_blank">bosscatrocketclub.com</a>
+- <a href="https://chilledkongs.com/" target="_blank">chilledkongs.com</a>
+- <a href="https://mocossi.com/" target="_blank">mocossi.com</a>
+- <a href="https://spaceapeclub.io/" target="_blank">spaceapeclub.io</a>
+- <a href="https://www.pavia.io/" target="_blank">pavia.io</a>
+
+#### General tools
+- <a href="https://opencnft.io/" target="_blank">opencnft.io</a>
+- <a href="https://cnft.tools/" target="_blank">cnft.tools</a>
+- <a href="https://www.cnftjungle.io/" target="_blank">cnftjungle.io</a>
+- <a href="https://www.belowfloor.io/" target="_blank">belowfloor.io</a>
+
+#### Specific tools
+- <a href="https://pavia.3dkiwi.io/" target="_blank">Pavia heatmap</a>
+
+
+## Column 3
+### About me
+- I am passionate about crypto, (c)nfts, stats, and programming!
+- Hit me on discord: <a href="https://discord.com/users/K2#8332/" target="_blank">K2#8332</a>
+- Follow me on Twitter: <a href="https://twitter.com/cnftstats" target="_blank">@cnftstats</a>
+
+
+<!-- https://ionic.io/ionicons/v2/cheatsheet.html -->
+<!-- https://www.qrcode-monkey.com/#text -->

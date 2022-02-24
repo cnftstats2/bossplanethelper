@@ -1,0 +1,179 @@
+a {
+  color: #00B2EE;
+}
+
+
+/* TABLES */
+table.dataTable {
+  float: left;
+}
+
+table.dataTable thead th {
+
+}
+
+#currentProject, #currentProject:hover {
+  font-weight: bold !important;
+  background-color: rgba(104, 53, 129, 0.1) !important;
+}
+
+#sidebar {
+  /*width: 80px !important;*/
+  padding: 0;
+  margin: 0;
+}
+
+#sidebar_ul {
+  padding: 0;
+  margin: 0;
+}
+
+#sidebar_ul a {
+  color: rgb(75, 120, 162);
+  font-size: 13px;
+}
+
+#sidebar_ul a:hover {
+  text-decoration: none;
+}
+
+#sidebar_ul li {
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 10px 5px 10px 5px;
+  border-bottom: 1px solid rgba(205, 205, 205, .7);
+}
+
+#sidebar_ul li:hover {
+  background-color: rgba(104, 53, 129, 0.1);
+  font-weight: bold !important;
+}
+
+.navbar-brand {
+  line-height: 10px !important;
+}
+
+
+#updatedat {
+  margin: 0;
+  padding: 0;
+  color: rgb(230, 230, 230, .6) !important;
+  font-size: 12px !important;
+}
+
+.navbar-author {  /* updated at... */
+  color: rgb(230, 230, 230, .6) !important;
+  font-size: 12px !important;
+}
+
+/* TIP ME */
+
+#navbar > ul.nav.navbar-nav.navbar-left > li:nth-child(3) > a {
+  -webkit-animation: color 30s infinite;
+  -moz-animation: color 30s infinite;
+  -o-animation: color 30s infinite;
+  animation: color 30s infinite;
+}
+
+@-webkit-keyframes color {
+  0% { color: white; }
+  30% { color: white; }
+  50% { color: rgba(255, 0, 0, .5); }
+  70% { color: white; }
+  100% { color: white; }
+}
+@-moz-keyframes color {
+  0% { color: white; }
+  30% { color: white; }
+  50% { color: rgba(255, 0, 0, .5); }
+  70% { color: white; }
+  100% { color: white; }
+}
+@-o-keyframes color {
+  0% { color: white; }
+  30% { color: white; }
+  50% { color: rgba(255, 0, 0, .5); }
+  70% { color: white; }
+  100% { color: white; }
+}
+@keyframes color {
+  0% { color: white; }
+  30% { color: white; }
+  50% { color: rgba(255, 0, 0, .5); }
+  70% { color: white; }
+  100% { color: white; }
+}
+
+
+/* IMAGES */
+.img_html {
+  height: 50px;
+  width: 50px;
+  margin: 0px;
+  padding: 0px;
+}
+
+
+/* NAVBAR */
+.navbar-inverse .navbar-nav > li > a:hover,
+.navbar-inverse .navbar-nav>.active>a,
+.navbar-inverse .navbar-nav>.active>a:hover,
+.navbar-inverse .navbar-nav>.active>a:focus {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.navbar-inverse {
+  border: none;
+}
+
+.navbar {
+  background: linear-gradient(90deg, #ffc300, #eddd53, #add45c, #57c785, #00baad, #2a7b9b, #3d3d6b,
+  #511849, #900c3f, #c70039, #ff5733, #ff8d1a);
+  background-size: 2400% 2400%;
+
+  -webkit-animation: navBarAnimation 30s ease infinite;
+  -moz-animation: navBarAnimation 30s ease infinite;
+  -o-animation: navBarAnimation 30s ease infinite;
+  animation: navBarAnimation 30s ease infinite;
+}
+
+@-webkit-keyframes navBarAnimation {
+  0%{background-position:48% 0%}
+  50%{background-position:53% 100%}
+  100%{background-position:48% 0%}
+}
+@-moz-keyframes navBarAnimation {
+  0%{background-position:48% 0%}
+  50%{background-position:53% 100%}
+  100%{background-position:48% 0%}
+}
+@-o-keyframes navBarAnimation {
+  0%{background-position:48% 0%}
+  50%{background-position:53% 100%}
+  100%{background-position:48% 0%}
+}
+@keyframes navBarAnimation {
+  0%{background-position:48% 0%}
+  50%{background-position:53% 100%}
+  100%{background-position:48% 0%}
+}
+
+
+/* SCROLLBAR */
+::-webkit-scrollbar {
+  width: 20px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d6dee1;
+  border-radius: 20px;
+  border: 6px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a8bbbf;
+}
